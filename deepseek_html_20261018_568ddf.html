@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grammar Test</title>
+    <!-- Подключаем Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            /* Переменные Telegram (заполнятся автоматически) */
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-hint-color: #999999;
+            --tg-theme-button-color: #3390ec;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-secondary-bg-color: #f4f4f5;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        /* Заголовок */
+        .header {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            gap: 8px;
+            line-height: 1.4;
+        }
+
+        .header .number {
+            color: var(--tg-theme-button-color);
+            flex-shrink: 0;
+        }
+
+        /* Карточка вопроса */
+        .question-card {
+            background-color: var(--tg-theme-secondary-bg-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            position: relative;
+            transition: background-color 0.3s;
+        }
+
+        .question-card.correct {
+            background-color: rgba(76, 175, 80, 0.15);
+        }
+
+        .question-card.incorrect {
+            background-color: rgba(244, 67, 54, 0.15);
+        }
+
+        /* Счетчик */
+        .counter {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color);
+            margin-bottom: 8px;
+        }
+
+        /* Текст предложения */
+        .sentence {
+            text-align: center;
+            font-size: 16px;
+            margin: 16px 0 20px;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        /* Кнопки */
+        .buttons-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            max-width: 140px;
+            background-color: var(--tg-theme-bg-color);
+            border: 1px solid rgba(128, 128, 128, 0.3);
+            border-radius: 8px;
+            padding: 10px 0;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            color: var(--tg-theme-text-color);
+            transition: all 0.15s;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        /* Выбранный ответ */
+        .btn.selected {
+            border-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-color);
+            background-color: rgba(51, 144, 236, 0.1);
+        }
+
+        /* Подсветка правильного ответа */
+        .btn.correct-answer {
+            background-color: #4caf50;
+            border-color: #4caf50;
+            color: #fff;
+        }
+
+        /* Подсветка неправильного ответа */
+        .btn.wrong-answer {
+            background-color: #f44336;
+            border-color: #f44336;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <span class="number">1.2</span>
+        <span>Look at the sentences. Choose TRUE if the sentence is correct, choose FALSE if there is a mistake.</span>
+    </div>
+
+    <div id="quiz-container"></div>
+</div>
+
+<script>
+    // 1. Инициализация Telegram WebApp
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand(); // Разворачиваем на весь экран
+
+    // Применяем цвета темы Telegram к CSS-переменным
+    const root = document.documentElement;
+    if (tg.themeParams.bg_color) {
+        root.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color);
+        root.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color);
+        root.style.setProperty('--tg-theme-hint-color', tg.themeParams.hint_color);
+        root.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color);
+        root.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color || '#f4f4f5');
+    }
+
+    // 2. Данные заданий
+    const questions = [
+        { text: "I might be picky about the dessert.", isCorrect: true },
+        { text: "Xavier may trys the new flavor of ice cream.", isCorrect: false },
+        { text: "Caleb might have an issue with this scale.", isCorrect: true },
+        { text: "You may had a discount if you ask nicely.", isCorrect: false },
+        { text: "The restaurant won't charge extra for the brew.", isCorrect: true }
+    ];
+
+    const container = document.getElementById('quiz-container');
+    let answeredCount = 0;
+    const totalQuestions = questions.length;
+
+    // 3. Отрисовка вопросов
+    questions.forEach((q, index) => {
+        const card = document.createElement('div');
+        card.className = 'question-card';
+
+        card.innerHTML = `
+            <div class="counter">${index + 1} / ${totalQuestions}</div>
+            <div class="sentence">${q.text}</div>
+            <div class="buttons-container">
+                <button class="btn btn-true">Верно</button>
+                <button class="btn btn-false">Неверно</button>
+            </div>
+        `;
+
+        const btnTrue = card.querySelector('.btn-true');
+        const btnFalse = card.querySelector('.btn-false');
+        let hasAnswered = false;
+
+        const handleSelection = (userChoice) => {
+            if (hasAnswered) return; // Запрещаем менять ответ
+            hasAnswered = true;
+            answeredCount++;
+
+            // Haptic отклик (вибрация)
+            tg.HapticFeedback.impactOccurred('medium');
+
+            const isUserCorrect = (userChoice === q.isCorrect);
+
+            // Очистка стилей
+            card.classList.remove('correct', 'incorrect');
+            btnTrue.classList.remove('selected', 'correct-answer', 'wrong-answer');
+            btnFalse.classList.remove('selected', 'correct-answer', 'wrong-answer');
+
+            // Показываем выбор пользователя
+            if (userChoice) btnTrue.classList.add('selected');
+            else btnFalse.classList.add('selected');
+
+            // Проверка
+            if (isUserCorrect) {
+                card.classList.add('correct');
+                if (userChoice) btnTrue.classList.add('correct-answer');
+                else btnFalse.classList.add('correct-answer');
+            } else {
+                card.classList.add('incorrect');
+                // Подсвечиваем ошибку пользователя
+                if (userChoice) btnTrue.classList.add('wrong-answer');
+                else btnFalse.classList.add('wrong-answer');
+                // Подсвечиваем правильный ответ
+                if (q.isCorrect) btnTrue.classList.add('correct-answer');
+                else btnFalse.classList.add('correct-answer');
+            }
+
+            // Если ответили на все вопросы — показываем кнопку "Закрыть" внизу Telegram
+            if (answeredCount === totalQuestions) {
+                showFinishButton();
+            }
+        };
+
+        btnTrue.addEventListener('click', () => handleSelection(true));
+        btnFalse.addEventListener('click', () => handleSelection(false));
+
+        container.appendChild(card);
+    });
+
+    // 4. Функция завершения (нативная кнопка Telegram)
+    function showFinishButton() {
+        tg.MainButton.setText('Завершить тест');
+        tg.MainButton.color = tg.themeParams.button_color || '#3390ec';
+        tg.MainButton.show();
+
+        tg.MainButton.onClick(() => {
+            tg.HapticFeedback.notificationOccurred('success');
+            // Отправляем данные боту (если нужно) и закрываем
+            tg.sendData(JSON.stringify({ completed: true }));
+            tg.close();
+        });
+    }
+</script>
+
+</body>
+</html>
